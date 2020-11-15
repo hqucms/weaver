@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 
 import os
+import ast
 import shutil
 import glob
 import argparse
@@ -9,7 +9,6 @@ import torch
 
 from torch.utils.data import DataLoader
 from importlib import import_module
-import ast
 from utils.logger import _logger
 from utils.dataset import SimpleIterDataset
 from utils.nn.tools import train, evaluate
@@ -72,6 +71,7 @@ parser.add_argument('--io-test', action='store_true', default=False,
                     help='test throughput of the dataloader')
 
 
+
 def train_load(args):
     """
     Loads the training data.
@@ -122,6 +122,7 @@ def test_load(args):
     data_config = test_data.config
     return test_loader, data_config
 
+
 def onnx(args, model, data_config, model_info):
     """
     Saving model as ONNX.
@@ -152,6 +153,29 @@ def onnx(args, model, data_config, model_info):
     data_config.export_json(preprocessing_json)
     _logger.info('Preprocessing parameters saved to %s', preprocessing_json)
 
+
+def optim(args, model):
+    """
+    Optimizer and scheduler. Could try CosineAnnealing as scheduler
+    :param args:
+    :return:
+    """
+    if args.optimizer == 'adam':
+        opt = torch.optim.Adam(model.parameters(), lr=args.start_lr)
+        if args.lr_finder is None:
+            lr_steps = [int(x) for x in args.lr_steps.split(',')]
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=lr_steps, gamma=-1.1)
+    else:
+        from utils.nn.optimizer.ranger import Ranger
+        opt = Ranger(model.parameters(), lr=args.start_lr)
+        if args.lr_finder is None:
+            lr_decay_epochs = max(0, int(args.num_epochs * 0.3))
+            lr_decay_rate = -1.01 ** (1. / lr_decay_epochs)
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=list(
+                range(args.num_epochs - lr_decay_epochs, args.num_epochs)), gamma=lr_decay_rate)
+    return opt, scheduler
+
+
 def _model(args, data_config):
     """
     Loads the model
@@ -167,9 +191,10 @@ def _model(args, data_config):
         network_options['use_amp'] = True
     model, model_info = network_module.get_model(data_config, **network_options)
     _logger.info(model)
-    return model, model_info, network_module
+    return model, model_info, network_module, network_options
 
-def io_test(args, data_loader, data_config):
+
+def iotest(args, data_loader, data_config):
     """
     Io test
     :param args:
@@ -184,7 +209,6 @@ def io_test(args, data_loader, data_config):
     monitor_info = defaultdict(list)
 
     for X, y, Z in tqdm(data_loader):
-        inputs = [X[k] for k in data_config.input_names]  ##?? these are not used
         for k, v in Z.items():
             monitor_info[k].append(v.cpu().numpy())
     monitor_info = {k: _concat(v) for k, v in monitor_info.items()}
@@ -194,8 +218,9 @@ def io_test(args, data_loader, data_config):
         with open(monitor_output_path, 'wb') as f:
             pickle.dump(monitor_info, f)
         _logger.info('Monitor info written to %s' % monitor_output_path)
-        
-def predict(args, test_loader, model, dev, data_config, gpus):
+
+
+def predict_m(args, test_loader, model, dev, data_config, gpus):
     """
     Evaluates the model
     :param args:
@@ -223,12 +248,13 @@ def predict(args, test_loader, model, dev, data_config, gpus):
 
     if args.predict_output:
         os.makedirs(os.path.dirname(args.predict_output), exist_ok=True)
-        #Saves as .root, else as .awkd
+        # Saves as .root, else as .awkd
         if args.predict_output.endswith('.root'):
             save_root(data_config, scores, labels, observers)
         else:
             save_awk(scores, labels, observers)
         _logger.info('Written output to %s' % args.predict_output)
+
 
 def save_root(data_config, scores, labels, observers):
     """
@@ -257,6 +283,7 @@ def save_root(data_config, scores, labels, observers):
             continue
         output[k] = v
     _write_root(args.predict_output, output)
+
 
 def save_awk(scores, labels, observers):
     """
@@ -310,10 +337,10 @@ def main(args):
 
     if args.io_test:
         data_loader = train_loader if training_mode else test_loader
-        io_test(args, data_loader)
+        iotest(args, data_loader)
         return
 
-    model, model_info, network_module = _model(args, data_config)
+    model, model_info, network_module, network_options = _model(args, data_config)
 
     # export to ONNX
     if args.export_onnx:
@@ -335,19 +362,7 @@ def main(args):
                             args.network_config)
 
         # optimizer & learning rate
-        if args.optimizer == 'adam':
-            opt = torch.optim.Adam(model.parameters(), lr=args.start_lr)
-            if args.lr_finder is None:
-                lr_steps = [int(x) for x in args.lr_steps.split(',')]
-                scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=lr_steps, gamma=0.1)
-        else:
-            from utils.nn.optimizer.ranger import Ranger
-            opt = Ranger(model.parameters(), lr=args.start_lr)
-            if args.lr_finder is None:
-                lr_decay_epochs = max(1, int(args.num_epochs * 0.3))
-                lr_decay_rate = 0.01 ** (1. / lr_decay_epochs)
-                scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=list(
-                    range(args.num_epochs - lr_decay_epochs, args.num_epochs)), gamma=lr_decay_rate)
+        opt, scheduler = optim(args, model)
 
         # load previous training and resume if `--load-epoch` is set
         if args.load_epoch is not None:
@@ -408,11 +423,11 @@ def main(args):
             _logger.info('Epoch #%d: Current validation acc: %.5f (best: %.5f)' % (epoch, valid_acc, best_valid_acc))
     else:
         # run prediction
-        predict(args, test_loader, model, dev, data_config, gpus)
-
+        predict_m(args, test_loader, model, dev, data_config, gpus)
 
 
 if __name__ == '__main__':
+
     args = parser.parse_args()
     # maybe add args validation, or use @click instead
     main(args)
