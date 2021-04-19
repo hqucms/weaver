@@ -221,3 +221,29 @@ f.SetCompressionLevel(4);
    - Note that the workload splitting is file-based, so make sure the number of input files is not too small (i.e., make sure each worker is able to load several files to get samples *from all classes*). 
       - **e.g., if each (signal/background) class is present in only one input file, please use `--num-workers 1` so that they are properly mixed for the training.**
 
+## WW training
+
+For training:
+```
+python train.py --data-train '/data/shared/cmantill/training/3Mar21/train/QCD*/*.root' '/data/shared/cmantill/training/3Mar21/train/Grav*/*.root'  --data-config data/ak8hww_points_pf_sv_mass_decorr.yaml --network-config networks/particle_net_pf_sv.py --model-prefix models/v0/v0_hwwvsQCD_nworkers3_bsize256_fstep0p02_gpu123_lr1e3 --num-workers 3 --batch-size 256 --start-lr 1e-3 --num-epochs 30 --optimizer ranger --gpu 1,2,3 --fetch-step 0.02 --load-epoch 1 | tee logs/v0_hwwvsQCD_nworkers3_bsize256_fstep0p02_gpu123_lr1e3.log
+```
+
+For testing:
+```
+python train.py --predict --data-test '/data/shared/cmantill/training/3Mar21/test/QCD*/*.root' '/data/shared/cmantill/training/3Mar21/test/Glu*/*.root' '/data/shared/cmantill/training/3Mar21/test/H*/*.root' '/data/shared/cmantill/training/3Mar21/test/VBF*/*.root' --data-config data/ak8hww_points_pf_sv_mass_decorr.yaml --network-config networks/particle_net_pf_sv.py --model-prefix models/v0/v0_hwwvsQCD_nworkers3_bsize256_fstep0p02_gpu123_lr1e3_best_epoch_state.pt --num-workers 3 --gpus 2,3,4,5 --batch-size 256 --predict-output output/v0_Mar10.root
+```
+
+Exporting to onnx:
+```
+python train.py -c data/
+ak8hww_points_pf_sv_mass_decorr.yaml -n networks/particle_net_pf_sv.py -m 
+models/v0/v0_hwwvsQCD_nworkers3_bsize256_fstep0p02_gpu123_lr1e3_best_epoch_state.pt
+ --export-onnx onnx/v0_Mar10.onnx  
+```
+
+Running metrics:
+```
+python run_metrics.py --channel elenuqq -i /storage/user/cmantill/training/weaver/output/v0_Mar10.root --tag v0 --roc --name PN
+python run_metrics.py --channel munuqq -i /storage/user/cmantill/training/weaver/output/v0_Mar10.root --tag v0 --roc --name PN
+python run_metrics.py --channel 4q -i /storage/user/cmantill/training/weaver/output/v0_Mar10.root --tag v0 --roc --name PN
+```
