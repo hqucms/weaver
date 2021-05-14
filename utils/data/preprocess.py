@@ -154,7 +154,9 @@ class WeightMaker(object):
         class_events = {}
         result = {}
         for label in self._data_config.reweight_classes:
+            _logger.info('Making weight for class %s ',label)
             pos = (table[label] == 1)
+            _logger.info('Number of jets for this class %d',len(table[x_var][pos]))
             x = table[x_var][pos]
             y = table[y_var][pos]
             hist, _, _ = np.histogram2d(x, y, bins=self._data_config.reweight_bins)
