@@ -57,12 +57,13 @@ def roc_input(table,var,label_sig,label_bkg):
     truth = np.concatenate((siglabels,bkglabels),axis=None)
     return truth, predict
 
-def plot_features(table, scores, label_sig, label_bkg, name, features=['fj_sdmass','fj_pt']):
-    labels = {'fj_mass': r'$m_{SD}$',
+def plot_features_qcd(table, scores, label_sig, label_bkg, name, features=['fj_sdmass','fj_pt']):
+    labels = {'fj_msoftdrop': r'$m_{SD}$',
               'fj_pt': r'$p_{T}$',
           }
-    feature_range = {'fj_mass': [30,250],
-                     'fj_pt': [200,2500],
+    feature_range = {'fj_msoftdrop': [[30,260],[30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260]],
+                     #'fj_pt': [[300,2500],[300, 380, 481, 608, 770, 974, 1233, 1561, 1975, 2500]],
+                     'fj_pt': [[200,2500],[200, 251, 316, 398, 501, 630, 793, 997, 1255, 1579, 1987, 2500]],
                  }
 
     def computePercentiles(data,percentiles):
@@ -81,11 +82,12 @@ def plot_features(table, scores, label_sig, label_bkg, name, features=['fj_sdmas
         per,cuts = computePercentiles(table[score_name][bkg],percentiles)
         for k in features:
             fig, ax = plt.subplots(figsize=(10,10))
-            bins = 40
+            #bins = 40
+            bins = feature_range[k][1]
             for i,cut in enumerate(cuts):
                 c = (1-per[i])*100
                 lab = '%i%% mistag-rate'%c
-                ax.hist(table[k][bkg][var>cut], bins=bins, lw=2, density=True, range=feature_range[k],
+                ax.hist(table[k][bkg][var>cut], bins=bins, lw=2, density=True, range=feature_range[k][0],
                         histtype='step',label=lab)
             ax.legend(loc='best')
             ax.set_xlabel(labels[k]+' (GeV)')
@@ -154,19 +156,23 @@ def main(args):
     label_sig = label_sig[args.channel]
     label_bkg = label_bkg['qcd']
     
-    funcs = {'deepAK8MD_H4q': 'fj_deepTagMD_H4qvsQCD',
-             'deepAK8_H': 'fj_deepTag_HvsQCD',
-             'score_H4q': 'score_fj_H_WW_4q/(1-score_fj_H_WW_elenuqq-score_fj_H_WW_munuqq)',
-             'score_Helenuqq': 'score_fj_H_WW_elenuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_munuqq)',
-             'score_Hmunuqq': 'score_fj_H_WW_munuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_elenuqq)',
+    funcs = {
+        'PN_H4qvsQCD': 'fj_PN_H4qvsQCD',
+        'score_H4q': 'score_fj_H_WW_4q/(1-score_fj_H_WW_elenuqq-score_fj_H_WW_munuqq)',
+        'score_Helenuqq': 'score_fj_H_WW_elenuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_munuqq)',
+        'score_Hmunuqq': 'score_fj_H_WW_munuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_elenuqq)',
     }
+    
+    if args.jet == "AK8":
+        funcs['deepAK8MD_H4q'] = 'fj_deepTagMD_H4qvsQCD'
+        funcs['deepAK8_H'] = 'fj_deepTag_HvsQCD'
 
     # inputfiles and names should have same shape
     inputfiles = args.input.split(',')
     names = args.name.split(',')
     
     # make dict of branches to load
-    lfeatures = ['fj_mass','fj_pt']
+    lfeatures = ['fj_msoftdrop','fj_pt']
     sameshape = True
     sh = []
     # check if the input files have the same shape
@@ -185,18 +191,18 @@ def main(args):
 
     # now build tables
     for n,name in enumerate(names):
-        #scores = {'score_%s'%label_sig['label']: '%s %s'%(name,label_sig['scores'])}
         scores = {'score_%s'%label_sig['scores']: '%s %s'%(name,label_sig['scores'])}
         if args.channel=='4q':
-            scores['deepAK8MD_H4q'] = 'DeepAK8 MD H4q'
-            scores['deepAK8_H'] = 'DeepAK8 H'
+            scores['PN_H4qvsQCD'] = 'PN H4qvsQCD'
+            if args.jet == "AK8":
+                scores['deepAK8MD_H4q'] = 'DeepAK8 MD H4q' 
+                scores['deepAK8_H'] = 'DeepAK8 H'  
         else:
-            scores['fj_lsf3'] = 'LSF'
+            if args.jet == "AK8":
+                scores['fj_lsf3'] = 'LSF'
 
         loadbranches = set()
         for k,kk in scores.items():
-            #if n>0 and 'DeepBoosted' in kk: continue # we only want to load deepAK8 once (hopefully it is the same for both outputs?)
-
             # load scores
             if k in funcs.keys(): loadbranches.update(_get_variable_names(funcs[k]))
             else: loadbranches.add(k)
@@ -227,12 +233,13 @@ def main(args):
                     newfprs[k] = fprs[k]
                     newtprs[k] = tprs[k]
             plot_response(table, scores, label_sig, label_bkg, name+args.channel)
-            plot_features(table, scores, label_sig, label_bkg, name+args.channel, lfeatures)
+            plot_features_qcd(table, scores, label_sig, label_bkg, name+args.channel, lfeatures)
+            plot_features_signal(able, scores, label_sig, label_bkg, name+args.channel, lfeatures_signal)
 
     if sameshape:
         newfprs, newtprs = get_roc(newtable, newscores, label_sig, label_bkg)
         plot_response(newtable,  newscores, label_sig, label_bkg, args.channel)
-        plot_features(newtable, newscores, label_sig, label_bkg, args.channel, lfeatures)
+        plot_features_qcd(newtable, newscores, label_sig, label_bkg, args.channel, lfeatures)
 
     plot_roc(label_sig, label_bkg, newfprs, newtprs)
     os.chdir(cwd)
@@ -245,6 +252,7 @@ if __name__ == "__main__":
     parser.add_argument('--idir', help='idir')
     parser.add_argument('--odir', help='odir')
     parser.add_argument('--channel', help='channel')
+    parser.add_argument('--jet', default="AK8", help='jet type')
     parser.add_argument('--loss', action='store_true', default=False, help='plot loss and acc')
     parser.add_argument('--roc', action='store_true', default=False, help='plot roc and nn output')
     args = parser.parse_args()
