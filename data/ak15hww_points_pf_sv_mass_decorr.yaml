@@ -4,10 +4,10 @@ treename:
 selection:
    ### use `&`, `|`, `~` for logical operations on numpy arrays
    ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
-   (fj_pt>300) & (fj_msoftdrop>30) & ((fj_isQCD==1) | ((fj_H_WW_4q==1) & (fj_dR_HWW_daus<1.5)) | ((fj_H_WW_elenuqq==1) & (fj_dR_HWW_daus<1.5)) | ((fj_H_WW_munuqq==1) & (fj_dR_HWW_daus<1.5)) )
+   (fj_pt>300) & (fj_pt<2500) & (fj_msoftdrop>=30) & (fj_msoftdrop<260) & ( (fj_isQCD==1) | ((fj_H_WW_4q==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_elenuqq==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_munuqq==1) & (fj_maxdR_HWW_daus<2.0)) )
 
 test_time_selection:
-   (fj_pt>300) & (fj_msoftdrop>30) & ((fj_isQCD==1) | ((fj_H_WW_4q==1) & (fj_dR_HWW_daus<1.5)) | ((fj_H_WW_elenuqq==1) & (fj_dR_HWW_daus<1.5)) | ((fj_H_WW_munuqq==1) & (fj_dR_HWW_daus<1.5)) )
+   (fj_pt>300) & (fj_pt<2500) & (fj_msoftdrop>=30) & (fj_msoftdrop<260) & ((fj_isQCD==1) | ((fj_genH_mass==125) && (((fj_H_WW_4q==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_elenuqq==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_munuqq==1) & (fj_maxdR_HWW_daus<2.0)))))
 
 new_variables:
    ### [format] name: formula
@@ -23,12 +23,12 @@ preprocess:
 
 inputs:
    pf_points:
-      length: 70
+      length: 100
       vars: 
          - pfcand_etarel
          - pfcand_phirel
    pf_features:
-      length: 70
+      length: 100
       vars: 
       ### [format 1]: var_name (no transformation)
       ### [format 2]: [var_name, 
@@ -52,16 +52,16 @@ inputs:
          - [pfcand_dxy, 0.0, 300]
          - [pfcand_dxysig, 0, 1.0]
    pf_mask:
-      length: 70
+      length: 100
       vars: 
          - pfcand_mask
    sv_points:
-      length: 10
+      length: 7
       vars:
          - sv_etarel 
          - sv_phirel
    sv_features:
-      length: 10
+      length: 7
       vars:
          - [sv_pt_log, 4, 0.6]
          - [sv_mass, 1.2, 0.3]
@@ -75,7 +75,7 @@ inputs:
          - [sv_d3d, 0.5, 0.2]
          - [sv_d3dsig, 7, 0.02]
    sv_mask:
-      length: 10
+      length: 7
       vars:
          - sv_mask
 
@@ -104,6 +104,15 @@ observers:
    - fj_dR_W
    - fj_dR_Wstar
    - fj_PN_H4qvsQCD
+   - fj_mindR_HWW_daus
+   - fj_maxdR_HWW_daus
+   - fj_genH_mass
+   - fj_genW_mass
+   - fj_genWstar_mass
+   - fj_genW_pt
+   - fj_genWstar_pt
+   - fj_genW_decay
+   - fj_genWstar_decay
 
 weights:
    ### [option 1] use precomputed weights stored in the input files
@@ -113,8 +122,8 @@ weights:
    use_precomputed_weights: false
    reweight_method: flat
    reweight_vars:
-      fj_pt: [200, 251, 316, 398, 501, 630, 793, 997, 1255, 1579, 1987, 2500]
-      fj_msoftdrop: [30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 300, 320]
+      fj_pt: [300, 380, 481, 658, 770, 974, 1233, 1561, 1975, 2500]
+      fj_msoftdrop: [30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260]
    reweight_classes: [fj_isQCD, fj_H_WW_4q, fj_H_WW_elenuqq, fj_H_WW_munuqq] #,fj_isTop]
    class_weights: [1, 1, 1, 1] #, 1]
    reweight_hists:
