@@ -7,7 +7,7 @@ selection:
    (fj_pt>300) & (fj_pt<2500) & (fj_msoftdrop>=30) & (fj_msoftdrop<260) & ( (fj_isQCD==1) | ((fj_H_WW_4q==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_elenuqq==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_munuqq==1) & (fj_maxdR_HWW_daus<2.0)) )
 
 test_time_selection:
-   (fj_pt>300) & (fj_pt<2500) & (fj_msoftdrop>=30) & (fj_msoftdrop<260) & ((fj_isQCD==1) | ((fj_genH_mass==125) && (((fj_H_WW_4q==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_elenuqq==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_munuqq==1) & (fj_maxdR_HWW_daus<2.0)))))
+   (fj_pt>300) & (fj_pt<2500) & (fj_msoftdrop>=30) & (fj_msoftdrop<260) & ((fj_isQCD==1) | ((fj_genH_mass==125) & (((fj_H_WW_4q==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_elenuqq==1) & (fj_maxdR_HWW_daus<2.0)) | ((fj_H_WW_munuqq==1) & (fj_maxdR_HWW_daus<2.0)))))
 
 new_variables:
    ### [format] name: formula

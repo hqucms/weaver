@@ -143,10 +143,14 @@ def main(args):
                        'label':  'fj_H_WW_4q',
                        'scores': 'H4q'
                    },
+                 'bb':{'legend': 'H(bb)',
+                       'label': 'fj_H_bb',
+                       'scores': 'Hbb',
+                   },
                  'elenuqq':{'legend': 'H(WW) ele',
                             'label':  'fj_H_WW_elenuqq',
                             'scores': 'Helenuqq',
-                      },
+                        },
                  'munuqq':{'legend': 'H(WW) mu',
                            'label':  'fj_H_WW_munuqq',
                             'scores': 'Hmunuqq'
@@ -157,15 +161,18 @@ def main(args):
     label_bkg = label_bkg['qcd']
     
     funcs = {
+        'score_Hbb': 'score_fj_H_bb/(1-score_fj_H_cc-score_fj_H_qq)',
         'PN_H4qvsQCD': 'fj_PN_H4qvsQCD',
         'score_H4q': 'score_fj_H_WW_4q/(1-score_fj_H_WW_elenuqq-score_fj_H_WW_munuqq)',
         'score_Helenuqq': 'score_fj_H_WW_elenuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_munuqq)',
         'score_Hmunuqq': 'score_fj_H_WW_munuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_elenuqq)',
+        'PN_HbbvsQCD': 'fj_PN_XbbvsQCD',
     }
     
     if args.jet == "AK8":
         funcs['deepAK8MD_H4q'] = 'fj_deepTagMD_H4qvsQCD'
         funcs['deepAK8_H'] = 'fj_deepTag_HvsQCD'
+        funcs['PN_Xbb'] = 'fj_PN_XbbvsQCD'
 
     # inputfiles and names should have same shape
     inputfiles = args.input.split(',')
@@ -197,6 +204,8 @@ def main(args):
             if args.jet == "AK8":
                 scores['deepAK8MD_H4q'] = 'DeepAK8 MD H4q' 
                 scores['deepAK8_H'] = 'DeepAK8 H'  
+        elif args.channel=='bb':
+            scores['PN_HbbvsQCD'] = 'PN HbbvsQCD'
         else:
             if args.jet == "AK8":
                 scores['fj_lsf3'] = 'LSF'
