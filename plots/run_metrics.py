@@ -6,7 +6,7 @@ import numpy as np
 
 from utils.data.fileio import _read_root
 from utils.data.tools import  _get_variable_names
-from utils.data.preprocess import _build_new_variables
+from utils.data.preprocess import _build_new_variables,_apply_selection
 from sklearn.metrics import roc_curve, auc
 
 import matplotlib.pyplot as plt
@@ -78,7 +78,7 @@ def plot_features_qcd(table, scores, label_sig, label_bkg, name, features=['fj_s
     for score_name,score_label in scores.items():
         bkg = (table[label_bkg['label']] == 1)
         var = table[score_name][bkg]
-        percentiles = [0.1,0.2,0.8,0.9,0.95,0.97]
+        percentiles = [0.97,0.98,0.99,0.995,0.999,0.9995]
         per,cuts = computePercentiles(table[score_name][bkg],percentiles)
         for k in features:
             fig, ax = plt.subplots(figsize=(10,10))
@@ -86,7 +86,7 @@ def plot_features_qcd(table, scores, label_sig, label_bkg, name, features=['fj_s
             bins = feature_range[k][1]
             for i,cut in enumerate(cuts):
                 c = (1-per[i])*100
-                lab = '%i%% mistag-rate'%c
+                lab = '%.3f%% mistag-rate'%c
                 ax.hist(table[k][bkg][var>cut], bins=bins, lw=2, density=True, range=feature_range[k][0],
                         histtype='step',label=lab)
             ax.legend(loc='best')
@@ -124,9 +124,38 @@ def get_roc(table, scores, label_sig, label_bkg):
 
 def plot_roc(label_sig, label_bkg, fprs, tprs):
     plt.clf()
+    def get_round(x_effs,y_effs,to_get=[0.01,0.02,0.03]):
+        effs = []
+        for eff in to_get:
+            for i,f in enumerate(x_effs):
+                if round(f,2) == eff:
+                    effs.append(y_effs[i])
+                    print(round(f,2),y_effs[i])
+                    break
+        return effs     
+
+    markers = ['v','^','o','s']
+    ik = 0
     for k,it in fprs.items():
         plt.plot(fprs[k], tprs[k], lw=2.5, label=r"{}, AUC = {:.1f}%".format(k,auc(fprs[k],tprs[k])*100))
+        x_effs = [0.01,0.02,0.03]
+        y_effs = get_round(fprs[k],tprs[k])
+        print(x_effs,y_effs)
+        plt.scatter(x_effs,y_effs,marker=markers[ik],label=k)
+        ik+=1
+
+    # tautau numbers
+    #x_eff = [0.01,0.02,0.03]
+    #elenuqq
+    #y_eff = [0.65,0.75,0.8]
+    # munuqq
+    #y_eff = [0.7,0.75,0.8]    
+    #plt.scatter(x_eff,y_eff,marker='d',label=r'h$\rightarrow e\tau$')
+    #plt.scatter(x_eff,y_eff,marker='d',label=r'h$\rightarrow \mu\tau$')
+
     plt.legend(loc='upper left')
+    plt.grid(which='minor', alpha=0.2)
+    plt.grid(which='major', alpha=0.5)
     plt.ylabel(r'Tagging efficiency %s'%label_sig['legend']) 
     plt.xlabel(r'Mistagging rate %s'%label_bkg['legend'])
     plt.savefig("roc_%s.pdf"%label_sig['label'])
@@ -140,7 +169,8 @@ def main(args):
                         'label':  'fj_isQCD'},
              }
     label_sig = {'4q':{'legend': 'H(WW)4q',
-                       'label':  'fj_H_WW_4q',
+                       'label': 'label_4q',
+                       #'label':  'fj_H_WW_4q',
                        'scores': 'H4q'
                    },
                  'bb':{'legend': 'H(bb)',
@@ -163,9 +193,10 @@ def main(args):
     funcs = {
         'score_Hbb': 'score_fj_H_bb/(1-score_fj_H_cc-score_fj_H_qq)',
         'PN_H4qvsQCD': 'fj_PN_H4qvsQCD',
-        'score_H4q': 'score_fj_H_WW_4q/(1-score_fj_H_WW_elenuqq-score_fj_H_WW_munuqq)',
-        'score_Helenuqq': 'score_fj_H_WW_elenuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_munuqq)',
-        'score_Hmunuqq': 'score_fj_H_WW_munuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_elenuqq)',
+        #'score_H4q': 'score_fj_H_WW_4q/(1-score_fj_H_WW_elenuqq-score_fj_H_WW_munuqq)',
+        'score_H4q': 'score_label_4q/(score_label_4q+score_fj_isQCD)',
+        #'score_Helenuqq': 'score_fj_H_WW_elenuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_munuqq)',
+        #'score_Hmunuqq': 'score_fj_H_WW_munuqq/(1-score_fj_H_WW_4q-score_fj_H_WW_elenuqq)',
         'PN_HbbvsQCD': 'fj_PN_XbbvsQCD',
     }
     
@@ -192,7 +223,7 @@ def main(args):
 
     # go to plot directory
     cwd=os.getcwd()
-    odir = 'plots/%s/'%(args.tag)
+    odir = '%s/'%(args.tag)
     os.system('mkdir -p %s'%odir)
     os.chdir(odir)
 
@@ -220,8 +251,15 @@ def main(args):
             loadbranches.add(label_bkg['label'])
             loadbranches.add(label_sig['label'])
             for k in lfeatures: loadbranches.add(k)
+            loadbranches.add('fj_genH_mass')
+        print(loadbranches)
 
         table = _read_root(inputfiles[n], loadbranches)
+        config_selection = None
+        config_selection = '((fj_isQCD==1) | ((label_4q==1) & (fj_genH_mass!=125)))'
+        if config_selection:
+            _apply_selection(table, config_selection)
+        print(table)
         if(n==0 or (not sameshape)):
             _build_new_variables(table, {k: v for k,v in funcs.items() if k in scores.keys()})
             newtable = table
@@ -262,13 +300,7 @@ if __name__ == "__main__":
     parser.add_argument('--odir', help='odir')
     parser.add_argument('--channel', help='channel')
     parser.add_argument('--jet', default="AK8", help='jet type')
-    parser.add_argument('--loss', action='store_true', default=False, help='plot loss and acc')
-    parser.add_argument('--roc', action='store_true', default=False, help='plot roc and nn output')
+    parser.add_argument('--selection', default=None, type=str, help='selection')
     args = parser.parse_args()
 
-    if args.roc:
-        main(args)
-    #if args.loss:
-    #    plot_loss(args.idir,args.odir,args.name)
-    #    plot_accuracy(args.idir,args.odir,args.name)
-    
+    main(args)
