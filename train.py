@@ -105,6 +105,8 @@ parser.add_argument('--print', action='store_true', default=False,
                     help='do not run training/prediction but only print model information, e.g., FLOPs and number of parameters of a model')
 parser.add_argument('--profile', action='store_true', default=False,
                     help='run the profiler')
+parser.add_argument('--backend', type=str, choices=['gloo', 'nccl', 'mpi'], default='gloo',
+                    help='distributed backend')
 
 
 def to_filelist(args, mode='train'):
@@ -525,6 +527,8 @@ def main(args):
 
     # device
     if args.gpus:
+        _logger.info(f'Using distributed PyTorch with {args.backend} backend')
+        torch.distributed.init_process_group(backend=args.backend)
         gpus = [int(i) for i in args.gpus.split(',')]
         dev = torch.device(gpus[0])
     else:
@@ -582,8 +586,9 @@ def main(args):
 
         # multi-gpu
         if gpus is not None and len(gpus) > 1:
-            # model becomes `torch.nn.DataParallel` w/ model.module being the original `torch.nn.Module`
-            model = torch.nn.DataParallel(model, device_ids=gpus)
+            # model becomes `torch.nn.DistributedDataParallel` w/ model.module being the original `torch.nn.Module`
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=gpus)
+        
         model = model.to(dev)
 
         # lr finder: keep it after all other setups
@@ -647,7 +652,7 @@ def main(args):
             _logger.info('Loading model %s for eval' % model_path)
             model.load_state_dict(torch.load(model_path, map_location=dev))
             if gpus is not None and len(gpus) > 1:
-                model = torch.nn.DataParallel(model, device_ids=gpus)
+                model = torch.nn.DistributedDataParallel(model, device_ids=gpus)
             model = model.to(dev)
 
         for name, get_test_loader in test_loaders.items():
