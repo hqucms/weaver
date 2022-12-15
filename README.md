@@ -1,4 +1,14 @@
-# Weaver
+# This is a deprecated version of Weaver
+
+See [weaver-core](https://github.com/hqucms/weaver-core) for the latest version of Weaver, along with corresponding examples in [weaver-examples](https://github.com/hqucms/weaver-examples). 
+
+The new version of Weaver can be directly installed via `pip`, 
+```
+pip install weaver-core
+```
+
+
+## Weaver
 
 `Weaver` aims at providing a streamlined yet flexible machine learning R&D framework for high energy physics (HEP) applications. It puts particular emphases on:
 
